@@ -8,4 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class Grupo extends Model
 {
     use HasFactory;
+
+    protected $table = 'grupos';
+
+    protected $fillable = [
+        'user_id', 'foto', 'banner', 'nombre', 'descripcion', 'publico'
+    ];
+    
 }
