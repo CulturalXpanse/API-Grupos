@@ -3,51 +3,62 @@
 namespace App\Http\Controllers;
 
 use App\Models\Grupo;
+use Illuminate\Support\Str;
 use App\Models\Pertenencias;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
 class GrupoController extends Controller
 {
-    public function crear(Request $request) {
-    $request->validate([
-        'nombre' => 'required|string',
-        'descripcion' => 'required|string|max:500'
-    ]);
-
-    $token = $request->bearerToken();
-
-    if (!$token) {
-        return response()->json(['message' => 'Token de acceso requerido'], 401);
+    public function crearGrupo(Request $request) {
+    
+        $grupo = new Grupo();
+        $grupo->user_id = $request->user_id;
+        $grupo->nombre = $request->nombre;
+        $grupo->descripcion = $request->descripcion;
+        $grupo->publico = $request->publico;
+    
+        if ($request->hasFile('foto')) {
+            $foto = $request->file('foto');
+            $mimeType = $foto->getMimeType();
+            $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
+    
+            if (!in_array($mimeType, $allowedMimeTypes)) {
+                return response()->json(['error' => 'Solo se permiten imágenes (jpeg, png, gif, svg)'], 400);
+            }
+    
+            $fileName = Str::random(50) . '.' . $foto->getClientOriginalExtension();
+            $destinationPath = 'fotos/grupos';
+            $foto->move($destinationPath, $fileName);
+            $grupo->foto = $fileName;
+        }
+    
+        if ($request->hasFile('banner')) {
+            $banner = $request->file('banner');
+            $mimeType = $banner->getMimeType();
+            $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/svg+xml'];
+    
+            if (!in_array($mimeType, $allowedMimeTypes)) {
+                return response()->json(['error' => 'Solo se permiten imágenes (jpeg, png, gif, svg)'], 400);
+            }
+    
+            $fileName = Str::random(50) . '.' . $banner->getClientOriginalExtension();
+            $destinationPath = 'banners/grupos';
+            $banner->move($destinationPath, $fileName);
+            $grupo->banner = $fileName;
+        }
+    
+        $grupo->save();
+    
+        Pertenencias::create([
+            'user_id' => $user_id->id,
+            'grupo_id' => $grupo->id,
+            'administrador' => true,
+        ]);
+    
+        return response()->json(['grupo' => $grupo], 201);
     }
-
-    $response = Http::withHeaders([
-        'Authorization' => 'Bearer ' . $token
-    ])->get('http://localhost:8000/api/validate');
-
-    if ($response->status() != 200) {
-        return response()->json(['message' => 'Token inválido o expirado'], 401);
-    }
-
-    $userId = $response->json()['id'];
-
-    $grupo = Grupo::create([
-        'user_id' => $userId,
-        'foto' => $request->file('foto')->store('fotos'),
-        'banner' => $request->file('banner')->store('banners'),
-        'nombre' => $request->nombre,
-        'descripcion' => $request->descripcion,
-        'publico' => $request->publico,
-    ]);
-
-    Pertenencias::create([
-        'user_id' => $userId,
-        'grupo_id' => $grupo->id,
-        'administrador' => true,
-    ]);
-
-    return response()->json(['grupo' => $grupo], 201);
-}
+    
 
     public function listar() {
         $grupos = Grupo::all();
