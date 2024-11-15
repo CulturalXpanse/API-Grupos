@@ -12,8 +12,21 @@ class GrupoController extends Controller
 {
     public function crearGrupo(Request $request) {
     
+        $accessToken = $request->header('Authorization');
+
+        $response = Http::withHeaders([
+            'Authorization' => $accessToken
+        ])->get('http://localhost:8000/api/validate');
+
+        if (!$response->successful()) {
+            return response()->json(['error' => 'No autorizado'], 401);
+        }
+
+        $userData = $response->json();
+        $userId = $userData['id'];
+
         $grupo = new Grupo();
-        $grupo->user_id = $request->user_id;
+        $grupo->user_id = $userId;
         $grupo->nombre = $request->nombre;
         $grupo->descripcion = $request->descripcion;
         $grupo->publico = $request->publico;
@@ -51,7 +64,7 @@ class GrupoController extends Controller
         $grupo->save();
     
         Pertenencias::create([
-            'user_id' => $user_id->id,
+            'user_id' => $userId,
             'grupo_id' => $grupo->id,
             'administrador' => true,
         ]);
@@ -60,32 +73,46 @@ class GrupoController extends Controller
     }
     
 
-    public function listar() {
+    public function listar(Request $request) {
+        $accessToken = $request->header('Authorization');
+
+        $response = Http::withHeaders([
+            'Authorization' => $accessToken
+        ])->get('http://localhost:8000/api/validate');
+
+        if (!$response->successful()) {
+            return response()->json(['error' => 'No autorizado'], 401);
+        }
         $grupos = Grupo::all();
         return response()->json(['grupos' => $grupos], 200);
     }
 
     public function unirse(Request $request, $id) {
-    $accessToken = $request->header('Authorization');
+        $accessToken = $request->header('Authorization');
 
-    $response = Http::withHeaders([
-        'Authorization' => $accessToken
-    ])->get('http://localhost:8000/api/validate');
+        $response = Http::withHeaders([
+            'Authorization' => $accessToken
+        ])->get('http://localhost:8000/api/validate');
 
-    if ($response->successful()) {
-        $userData = $response->json();
-        $userId = $userData['user_id'];
+        if ($response->successful()) {
+            $userData = $response->json();
+            $userId = $userData['id'];
 
-        $grupo = Grupo::findOrFail($id);
+            $grupo = Grupo::findOrFail($id);
 
-        Pertenencias::updateOrCreate(
-            ['user_id' => $userId, 'grupo_id' => $grupo->id],
-            ['administrador' => false]
-        );
+            Pertenencias::updateOrCreate(
+                ['user_id' => $userId, 'grupo_id' => $grupo->id],
+                ['administrador' => false]
+            );
 
-        return response()->json(['message' => 'Unido al grupo'], 200);
-    } else {
-        return response()->json(['error' => 'No autenticado'], 401);
+            return response()->json(['message' => 'Unido al grupo'], 200);
+        } else {
+            return response()->json(['error' => 'No autenticado'], 401);
+        }
     }
-}
+
+    public function obtenerMiembros($grupo_id){
+        $miembros = Pertenencias::where('grupo_id', $grupo_id)->with('user')->get();
+        return response()->json(['miembros' => $miembros], 200);
+    }
 }
